@@ -13,7 +13,10 @@ dotenv.config()
 
 
 const app = express()
-app.use(cors())
+app.use(cors({
+  origin: '*',
+  credentials: true
+}))
 app.use(express.json())
 app.use(morgan('dev'))
 
@@ -242,7 +245,13 @@ app.post('/rooms', authMiddleware, async (req, res) => {
     console.error(e)
     res.status(500).json({ error: 'Failed to create room' })
   }
-  app.get('/auth/verify-email', async (req, res) => {
+ 
+
+
+
+})
+
+ app.get('/auth/verify-email', async (req, res) => {
   const { token } = req.query
   if (!token) return res.status(400).json({ error: 'Invalid token' })
 
@@ -265,6 +274,7 @@ app.post('/rooms', authMiddleware, async (req, res) => {
 
   res.json({ ok: true })
 })
+
 app.post('/auth/password-reset-request', async (req, res) => {
   const { email } = req.body
 
@@ -289,6 +299,7 @@ app.post('/auth/password-reset-request', async (req, res) => {
 
   res.json({ ok: true })
 })
+
 app.post('/auth/password-reset', async (req, res) => {
   const { token, newPassword } = req.body
 
@@ -317,6 +328,3 @@ app.post('/auth/password-reset', async (req, res) => {
 
   res.json({ ok: true })
 })
-
-})
-
