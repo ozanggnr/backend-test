@@ -1,3 +1,7 @@
+import multer from "multer";
+import { PutObjectCommand } from "@aws-sdk/client-s3";
+import { s3 } from "./s3.js";
+
 import express from 'express'
 import cors from 'cors'
 import morgan from 'morgan'
@@ -20,6 +24,8 @@ app.use(cors({
 app.use(express.json())
 app.use(morgan('dev'))
 
+
+const upload = multer({ storage: multer.memoryStorage() });
 const mongoUri = process.env.MONGODB_URI
 const dbName = process.env.DB_NAME || 'bestBefore_TestDB'
 const roomsCollectionName = process.env.COLLECTION_ROOMS || 'AryaColl'
@@ -42,6 +48,7 @@ app.get('/health', (req, res) => res.json({ ok: true }))
 
 // GET /rooms
 init().then(() => {
+  // Port 3000 is used for local testing (fallback). On Render, process.env.PORT is used.
   const port = Number(process.env.PORT) || 3000
   app.listen(port, () => console.log(`API listening on http://localhost:${port}`))
 }).catch(err => {
@@ -141,24 +148,11 @@ app.post('/signup', async (req, res) => {
       phone: validatedPhone,
       createdAt: new Date()
     }
+
     const result = await users.insertOne(doc)
 
-    const verifyToken = generateToken()
-
-await users.updateOne(
-  { _id: result.insertedId },
-  {
-    $set: {
-      emailVerified: false,
-      emailVerifyToken: verifyToken,
-      emailVerifyExpires: new Date(Date.now() + 1000 * 60 * 60 * 24) // 24h
-    }
-  }
-)
-
-console.log(
-  `VERIFY EMAIL LINK: http://localhost:3000/auth/verify-email?token=${verifyToken}`
-)
+    // Note: Email verification is now handled by Firebase Client SDK
+    // verifyToken generation and email logic removed.
 
 
     // Optionally auto-login after signup:
@@ -214,6 +208,42 @@ app.get('/me', authMiddleware, async (req, res) => {
   }
 })
 
+app.post(
+  "/upload/profile",
+  authMiddleware,
+  upload.single("image"),
+  async (req, res) => {
+    try {
+      const file = req.file;
+      if (!file) return res.status(400).json({ error: "No file uploaded" });
+
+      const key = `profiles/${req.user.userId}-${Date.now()}`;
+
+      await s3.send(
+        new PutObjectCommand({
+          Bucket: process.env.AWS_S3_BUCKET,
+          Key: key,
+          Body: file.buffer,
+          ContentType: file.mimetype
+        })
+      );
+
+      const imageUrl = `https://${process.env.AWS_S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
+
+      await users.updateOne(
+        { _id: new ObjectId(req.user.userId) },
+        { $set: { profileImage: imageUrl } }
+      );
+
+      res.json({ imageUrl });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "S3 upload failed" });
+    }
+  }
+);
+
+
 // Protect these routes
 app.get('/rooms', authMiddleware, async (req, res) => {
   try {
@@ -245,13 +275,16 @@ app.post('/rooms', authMiddleware, async (req, res) => {
     console.error(e)
     res.status(500).json({ error: 'Failed to create room' })
   }
- 
+
 
 
 
 })
 
- app.get('/auth/verify-email', async (req, res) => {
+
+
+
+app.get('/auth/verify-email', async (req, res) => {
   const { token } = req.query
   if (!token) return res.status(400).json({ error: 'Invalid token' })
 
