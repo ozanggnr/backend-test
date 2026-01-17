@@ -89,7 +89,7 @@ function generateToken() {
 
 // Helper: basic email validation
 function validateEmail(email) {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
   return emailRegex.test(email)
 }
 
@@ -233,6 +233,44 @@ app.post(
       await users.updateOne(
         { _id: new ObjectId(req.user.userId) },
         { $set: { profileImage: imageUrl } }
+      );
+
+      res.json({ imageUrl });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "S3 upload failed" });
+    }
+  }
+);
+
+app.post(
+  "/upload/room-photo",
+  authMiddleware,
+  upload.single("image"),
+  async (req, res) => {
+    try {
+      const file = req.file;
+      const { roomId } = req.body;
+      if (!file) return res.status(400).json({ error: "No file uploaded" });
+      if (!roomId) return res.status(400).json({ error: "Room ID required" });
+
+      const key = `rooms/${roomId}/${Date.now()}-${file.originalname}`;
+
+      await s3.send(
+        new PutObjectCommand({
+          Bucket: process.env.AWS_S3_BUCKET,
+          Key: key,
+          Body: file.buffer,
+          ContentType: file.mimetype
+        })
+      );
+
+      const imageUrl = `https://${process.env.AWS_S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
+
+      // Update Room document to include this photo
+      await rooms.updateOne(
+        { _id: new ObjectId(roomId) },
+        { $push: { photos: imageUrl } }
       );
 
       res.json({ imageUrl });
