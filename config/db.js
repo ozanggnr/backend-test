@@ -1,4 +1,4 @@
-import { ObjectId } from "mongodb";
+import { MongoClient } from 'mongodb';
 
 const mongoUri = process.env.MONGODB_URI;
 const dbName = process.env.DB_NAME || 'bestBefore_TestDB';
@@ -10,6 +10,10 @@ export async function connectDB() {
     if (client) return db;
 
     try {
+        if (!mongoUri) {
+            throw new Error('MONGODB_URI environment variable is not set');
+        }
+        
         console.log('Attempting to connect to MongoDB...');
         // Mask password in logs
         const maskedUri = mongoUri ? mongoUri.replace(/:([^:@]{1,})@/, ':****@') : 'UNDEFINED';
