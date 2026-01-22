@@ -51,7 +51,7 @@ export const oauth2Callback = async (req, res) => {
             // Store tokens securely. process.env.COLLECTION_USERS
             // You might want to encrypt the refresh token.
             await users.updateOne(
-                { _id: new import('mongodb').ObjectId(state) },
+                { _id: ObjectId(state) },
                 { $set: { googleTokens: tokens } }
             );
         }
@@ -72,7 +72,7 @@ export const getEvents = async (req, res) => {
         const db = getDB();
         const users = db.collection(process.env.COLLECTION_USERS || 'Users');
 
-        const user = await users.findOne({ _id: new import('mongodb').ObjectId(userId) });
+        const user = await users.findOne({ _id: new ObjectId(userId) });
 
         if (!user || !user.googleTokens) {
             return res.status(401).json({ error: 'Google Calendar not connected' });
