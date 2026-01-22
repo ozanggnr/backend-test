@@ -3,6 +3,60 @@ import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { s3 } from '../config/s3.js';
 import { getDB } from '../config/db.js';
 
+export async function keepRoom(req, res) {
+    try {
+        const { userId } = req.user;
+        const { roomId } = req.params;
+
+        if (!ObjectId.isValid(roomId)) {
+            return res.status(400).json({ error: "Invalid Room ID" });
+        }
+
+        const db = getDB();
+        const users = db.collection(process.env.COLLECTION_USERS || 'Users');
+
+        // Add room ID to user's savedRooms array (addToSet to prevent duplicates)
+        await users.updateOne(
+            { _id: new ObjectId(userId) },
+            { $addToSet: { savedRooms: new ObjectId(roomId) } }
+        );
+
+        // Also optionally mark the room as "kept" by this user if needed, 
+        // but storing it in the user profile is usually enough for "Saved Rooms".
+
+        res.json({ success: true, message: "Room saved to profile" });
+    } catch (e) {
+        console.error('Keep Room error:', e);
+        res.status(500).json({ error: 'Failed to save room' });
+    }
+}
+
+export async function getSavedRooms(req, res) {
+    try {
+        const { userId } = req.user;
+        const db = getDB();
+        const users = db.collection(process.env.COLLECTION_USERS || 'Users');
+        const rooms = db.collection(process.env.COLLECTION_ROOMS || 'AryaColl');
+
+        // Get user's saved rooms
+        const user = await users.findOne({ _id: new ObjectId(userId) });
+
+        if (!user || !user.savedRooms || user.savedRooms.length === 0) {
+            return res.json([]);
+        }
+
+        // Fetch details for these rooms
+        // savedRooms array should contain ObjectIds.
+        const savedRoomIds = user.savedRooms.map(id => new ObjectId(id));
+
+        const docs = await rooms.find({ _id: { $in: savedRoomIds } }).sort({ createdAt: -1 }).toArray();
+        res.json(docs);
+    } catch (e) {
+        console.error('Get Saved Rooms error:', e);
+        res.status(500).json({ error: 'Failed to fetch saved rooms' });
+    }
+}
+
 export async function createRoom(req, res) {
     try {
         const { userId, email } = req.user;
