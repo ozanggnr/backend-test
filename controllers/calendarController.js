@@ -4,7 +4,8 @@ import { getDB } from '../config/db.js';
 // Load credentials from environment
 const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
-const REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3000/auth/google/callback';
+const API_KEY = process.env.GOOGLE_CALENDAR_API_KEY;
+const REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || 'https://backend-test-1p44.onrender.com/auth/google/callback';
 
 const oauth2Client = new google.auth.OAuth2(
     CLIENT_ID,
